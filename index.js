@@ -17,12 +17,10 @@ app.post('/run', (req, res) => {
     return res.status(400).json({ error: 'command is required' });
   }
 
-  const [cmd, ...args] = command.split(' ');
-
-  const proc = spawn(cmd, args, {
-    cwd: cwd || process.cwd(),
-    shell: true, // allows built-ins like cd, echo, etc.
-  });
+  const proc = spawn(
+    'nsenter', ['--target', '1', '--mount', '--uts', '--net', '--pid', '--', 'sh', '-c', command],
+    { cwd: cwd || '/' }
+  );
 
   res.setHeader('Content-Type', 'text/plain');
   res.setHeader('Transfer-Encoding', 'chunked');
