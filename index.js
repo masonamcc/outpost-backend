@@ -1,29 +1,27 @@
 const express = require('express');
-const {spawn} = require('child_process');
+const { spawn } = require('child_process');
 const cors = require('cors');
 const fs = require('fs');
+const {homedir} = require("node:os");
 const {join} = require("node:path");
 const YAML = require('yaml');
+const { execSync } = require('child_process');
 
 const app = express();
 const HOST = '0.0.0.0';
 const PORT = 2749;
 
-app.use(cors({origin: ['http://localhost:2746', 'http://localhost:2748']}));
+app.use(cors({ origin: 'http://localhost:2748' }));
 app.use(express.json());
 
-function determineOS() {
-    console.log('OS is', process.platform)
-}
+const userHome = execSync(
+    "echo /home/$(who | awk 'NR==1{print $1}')"
+)
+    .toString()
+    .trim();
 
-determineOS()
-
-// Host app data is bind-mounted into the container at a fixed path so it
-// survives the rackie containers being removed/recreated.
-const DATA_DIR = process.env.RACKIE_DATA_DIR
-    || (process.platform === 'win32' ? 'C:\\Program Files\\Rackie' : '/config');
-
-const composePath = join(DATA_DIR, 'apps', 'docker-compose.yml');
+// Detect if we're running inside Docker
+const composePath = join(userHome, 'rackie', 'apps', 'docker-compose.yml');
 
 console.log(composePath);
 
@@ -45,20 +43,39 @@ app.get('/apps', (req, res) => {
 });
 
 app.post('/run', (req, res) => {
-    const {command, cwd} = req.body;
+    const { command, cwd } = req.body;
 
     if (!command) {
-        return res.status(400).json({error: 'command is required'});
+        return res.status(400).json({ error: 'command is required' });
     }
 
-    const proc = process.platform === "win32"
-        ? spawn("powershell.exe", [
-            "-NoProfile",
-            "-ExecutionPolicy", "Bypass",
-            "-Command",
-            command
-        ], cwd ? {cwd} : undefined)
-        : spawn("sh", ["-c", command], cwd ? {cwd} : undefined);
+    let proc;
+
+    if (isDocker) {
+        // Execute on the host from inside the container
+        proc = spawn(
+            'nsenter',
+            [
+                '--target', '1',
+                '--mount',
+                '--uts',
+                '--net',
+                '--pid',
+                '--',
+                'sh',
+                '-c',
+                command
+            ],
+            { cwd: cwd || '/' }
+        );
+    } else {
+        // Execute directly on the host during development
+        proc = spawn(
+            'sh',
+            ['-c', command],
+            { cwd: cwd || '/' }
+        );
+    }
 
     res.setHeader('Content-Type', 'text/plain');
     res.setHeader('Transfer-Encoding', 'chunked');
