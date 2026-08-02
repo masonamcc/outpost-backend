@@ -11,7 +11,18 @@ const app = express();
 const HOST = '0.0.0.0';
 const PORT = 2749;
 
-app.use(cors({ origin: 'http://localhost:2748' }));
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+
+        try {
+            const { port } = new URL(origin);
+            callback(null, port === '2748');
+        } catch {
+            callback(null, false);
+        }
+    }
+}));
 app.use(express.json());
 
 const userHome = execSync(
