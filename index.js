@@ -21,7 +21,7 @@ const userHome = execSync(
     .trim();
 
 // Detect if we're running inside Docker
-const composePath = join(userHome, 'rackie', 'apps', 'docker-compose.yml');
+const composePath = '/opt/rackie/apps/docker-compose.yml';
 
 console.log(composePath);
 
