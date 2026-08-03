@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "npe:build:windows": "node build.cjs"
+    "npe:build:windows": "node build.cjs",
+    "prod:build:windows": "node build-prod.cjs"
   },
   "dependencies": {
     "cors": "^2.8.6",
