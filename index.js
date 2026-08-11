@@ -53,6 +53,32 @@ app.get('/apps', (req, res) => {
     res.json(compose);
 });
 
+function runShell(command, cwd) {
+    return new Promise((resolve, reject) => {
+        const proc = isDocker
+            ? spawn(
+                'nsenter',
+                ['--target', '1', '--mount', '--uts', '--net', '--pid', '--', 'sh', '-c', command],
+                { cwd: cwd || '/' }
+            )
+            : spawn('sh', ['-c', command], { cwd: cwd || '/' });
+
+        let output = '';
+        proc.stdout.on('data', data => { output += data; });
+        proc.stderr.on('data', data => { output += data; });
+
+        proc.on('close', code => {
+            if (code === 0) {
+                resolve(output);
+            } else {
+                reject(new Error(`exit code ${code}: ${output}`));
+            }
+        });
+
+        proc.on('error', reject);
+    });
+}
+
 app.post('/run', (req, res) => {
     const { command, cwd } = req.body;
 
@@ -105,7 +131,7 @@ app.post('/run', (req, res) => {
     });
 });
 
-app.delete('/uninstall/:app', (req, res) => {
+app.delete('/uninstall/:app', async (req, res) => {
     console.log('Uninstall endpoint reached')
 
     const appName = req.params.app;
@@ -120,6 +146,12 @@ app.delete('/uninstall/:app', (req, res) => {
         return res.status(404).json({
             error: 'Service not found'
         });
+    }
+
+    try {
+        await runShell(`docker stop ${appName}; docker rm -f ${appName}`);
+    } catch (err) {
+        console.error(`Failed to remove container ${appName}:`, err.message);
     }
 
     delete compose.services[appName];
