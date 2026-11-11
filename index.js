@@ -9,7 +9,7 @@ const { execSync } = require('child_process');
 
 const app = express();
 const HOST = '0.0.0.0';
-const PORT = 2749;
+const PORT = 4456;
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -17,7 +17,7 @@ app.use(cors({
 
         try {
             const { port } = new URL(origin);
-            callback(null, port === '2748');
+            callback(null, port === '4455');
         } catch {
             callback(null, false);
         }
@@ -81,6 +81,8 @@ function runShell(command, cwd) {
 
 app.post('/run', (req, res) => {
     const { command, cwd } = req.body;
+
+    console.log('/run has been hit')
 
     if (!command) {
         return res.status(400).json({ error: 'command is required' });
